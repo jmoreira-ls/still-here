@@ -58,6 +58,7 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
         daysThreshold = _daysThreshold;
     }
 
+
     function addMember(address _member, string memory _name, string memory _pfp) external onlyOwner {
         require(family[_member].active != true, "Cannot add already existing member");
 
@@ -87,6 +88,10 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
         familyLength--;
 
         stillHere();
+    }
+
+    function transfer(address _to, uint256 _amount ) external {
+        (bool sent, ) = _to.call{value: _amount}("");
     }
 
     function stillHere() public onlyOwner {
