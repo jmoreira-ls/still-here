@@ -24,7 +24,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
 
   const wFactory = new ethers.Contract(W_FACTORY_ADDRESS, factoryArtifact.abi, wallet);
 
-  const days = 1;
+  const days = 0;
 
   // For the simplicity of the tutorial, we will use zero hash as salt
   const salt = ethers.constants.HashZero;
@@ -63,11 +63,6 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   ).wait();
 
   console.log(`Funds sent to new wallnut`)
-
-  const tx3 = await wallnut.transfer(moneyWallet.address, ethers.utils.parseEther("0.005"));
-  await tx3.wait();
-
-  console.log(`Unsigned transaction sent`)
 
   let wTx = await wallnut.populateTransaction.transfer(wallet.address, ethers.utils.parseEther("0.005"));
 
