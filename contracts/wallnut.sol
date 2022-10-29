@@ -90,8 +90,8 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
         stillHere();
     }
 
-    function transfer(address _to, uint256 _amount ) external {
-        (bool sent, ) = _to.call{value: _amount}("");
+    function transfer(address _to, uint256 _amount ) external payable {
+        _to.call{value: _amount}("");
     }
 
     function stillHere() public onlyOwner {
@@ -99,15 +99,15 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
     }
 
     function isActive() external view returns (bool) {
-        return _verifyNutCrack() == EIP1271_SUCCESS_RETURN_VALUE;
+        return _verifyNutCrack() != EIP1271_SUCCESS_RETURN_VALUE;
     }
 
     function _verifyNutCrack() internal view returns (bytes4) {
-        if (block.timestamp >= lastTimestamp + daysThreshold * 1 days ) {
-            return 0x0;
+        if (block.timestamp >= lastTimestamp + daysThreshold * 86400 ) {
+            return EIP1271_SUCCESS_RETURN_VALUE;
         }
 
-        return EIP1271_SUCCESS_RETURN_VALUE;
+        return 0x0;
     }
 
     function validateTransaction(
@@ -209,12 +209,12 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
             uint familyChecked = 0;
             for (uint i = 0; i < familyLength; i++) {
                 // TODO: verify if address is wallnut wallet AND is active
-                if (ERC165(familyAddr[i]).supportsInterface(type(IWallnut).interfaceId)) {
-                    if (!IWallnut(familyAddr[i]).isActive()) {
-                        familyChecked++;
-                        continue;
-                    }
-                }
+                /* if (ERC165(familyAddr[i]).supportsInterface(type(IWallnut).interfaceId)) { */
+                    /* if (!IWallnut(familyAddr[i]).isActive()) { */
+                        /* familyChecked++; */
+                        /* continue; */
+                    /* } */
+                /* } */
 
                 for (uint j = 0; j < signatureCount; j++) {
                     if (membersSigned[j] == familyAddr[i]) {
