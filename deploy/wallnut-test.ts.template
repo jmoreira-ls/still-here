@@ -1,0 +1,106 @@
+import { utils, Wallet, Provider, EIP712Signer, types } from "zksync-web3";
+import * as ethers from "ethers";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+
+// Put the address of your AA factory
+const W_FACTORY_ADDRESS = "0x96d9170fD121B1bde343af8bE28aFBf2B8696122";
+
+// An example of a deploy script deploys and calls a simple contract.
+export default async function (hre: HardhatRuntimeEnvironment) {
+  const provider = new Provider(hre.config.zkSyncDeploy.zkSyncNetwork);
+
+  const moneyWallet = new Wallet("<PRIVATE_KEY>").connect(provider);
+  const wallet = Wallet.createRandom().connect(provider);
+  await (
+    await moneyWallet.sendTransaction({
+      to: wallet.address,
+      // You can increase the amount of ETH sent to the multisig
+      value: ethers.utils.parseEther("0.3"),
+    })
+  ).wait();
+
+  const factoryArtifact = await hre.artifacts.readArtifact("WFactory");
+  const wallnutArtifact = await hre.artifacts.readArtifact("Wallnut");
+
+  const wFactory = new ethers.Contract(W_FACTORY_ADDRESS, factoryArtifact.abi, wallet);
+
+  const days = 0;
+
+  // For the simplicity of the tutorial, we will use zero hash as salt
+  const salt = ethers.constants.HashZero;
+
+  console.log(`Deploying new wallnut instance`);
+
+  const tx = await wFactory.deployAccount(salt, wallet.address, days);
+  await tx.wait();
+
+  // Getting the address of the deployed contract
+  const abiCoder = new ethers.utils.AbiCoder();
+  const wallnutAddress = utils.create2Address(
+    W_FACTORY_ADDRESS,
+    await wFactory.aaBytecodeHash(),
+    salt,
+    abiCoder.encode(["address", "uint"], [wallet.address, days])
+  );
+
+  console.log(`Wallnut launched to address ${wallnutAddress}`);
+
+  const wallnut = new ethers.Contract(wallnutAddress, wallnutArtifact.abi, wallet);
+  const member1 = Wallet.createRandom();
+  const member2 = Wallet.createRandom();
+
+  const tx1 = await wallnut.addMember(member1.address, "member1", "pfp1")
+  await tx1.wait();
+  const tx2 = await wallnut.addMember(member2.address, "member2", "pfp2")
+  await tx2.wait();
+
+  await (
+    await wallet.sendTransaction({
+      to: wallnutAddress,
+      // You can increase the amount of ETH sent to the multisig
+      value: ethers.utils.parseEther("0.1"),
+    })
+  ).wait();
+
+  console.log(`Funds sent to new wallnut`)
+
+  // const gasLimit = await provider.estimateGas(wTx);
+  const gasPrice = await provider.getGasPrice();
+
+  let txData = {
+    from: wallnutAddress,
+    to: moneyWallet.address,
+    value: ethers.utils.parseEther("0.01"),
+    gasPrice: gasPrice,
+    gasLimit: 300000,
+    chainId: (await provider.getNetwork()).chainId,
+    nonce: await provider.getTransactionCount(wallnutAddress),
+    type: 113,
+    customData: {
+      ergsPerPubdata: utils.DEFAULT_ERGS_PER_PUBDATA_LIMIT,
+    } as types.Eip712Meta,
+  };
+
+  console.log(`Signing transaction`);
+  
+  const signedTxHash = EIP712Signer.getSignedDigest(wTx);
+
+  console.log(`Concatenating member signatures`)
+
+  const signature = ethers.utils.concat([
+    // Note, that `signMessage` wouldn't work here, since we don't want
+    // the signed hash to be prefixed with `\x19Ethereum Signed Message:\n`
+    ethers.utils.joinSignature(member1._signingKey().signDigest(signedTxHash)),
+    ethers.utils.joinSignature(member2._signingKey().signDigest(signedTxHash)),
+  ]);
+
+  wTx.customData = {
+    ...wTx.customData,
+    customSignature: signature,
+  };
+
+  console.log(`Wallnut transaction created`)
+
+  const sentTx = await wallnut.sendTransactionFromOutside(wTx);
+  await sentTx.wait();
+}
