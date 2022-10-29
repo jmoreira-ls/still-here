@@ -1,0 +1,4 @@
+deploy/*.ts
+node_modules
+artifacts-zk
+cache-zk

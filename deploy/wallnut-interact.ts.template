@@ -1,0 +1,20 @@
+import { utils, Wallet, Provider, EIP712Signer, types } from "zksync-web3";
+import * as ethers from "ethers";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+
+const WALLNUT1_ADDRESS = "0xbb603E8Fb6D253F07525f60777dE13eA81541B89";
+const OWNER1_ADDRESS = "0xFb863f1F44cf6d0161608Ca10A5C2BD7eDeAeD07"
+
+// An example of a deploy script deploys and calls a simple contract.
+export default async function (hre: HardhatRuntimeEnvironment) {
+  const provider = new Provider(hre.config.zkSyncDeploy.zkSyncNetwork);
+  const wallet = new Wallet("<PRIVATE_KEY>").connect(provider);
+  const wallnutArtifact = await hre.artifacts.readArtifact("Wallnut");
+
+  const wallnut1 = new ethers.Contract(WALLNUT1_ADDRESS, wallnutArtifact.abi, wallet);
+
+  const member1 = "0x5A73c07163ACAE03e59c15697f79284b3bda2F2A";
+
+  console.log(await wallnut1.familyAddr(0))
+  console.log(await wallnut1.family(member1))
+}
