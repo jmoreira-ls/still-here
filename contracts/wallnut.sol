@@ -15,14 +15,12 @@ import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 // to call non-view method of system contracts
 import "@matterlabs/zksync-contracts/l2/system-contracts/SystemContractsCaller.sol";
 
-interface IWallnut {
 
-    function isActive() external view returns (bool);
-}
+import "./iWallnut.sol";
 
 contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
     // to get transaction hash
-    using TransactionHelper for Transaction;
+            using TransactionHelper for Transaction;
 
     struct Member {
         bool active;
