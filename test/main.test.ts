@@ -1,3 +1,4 @@
+import * as hardhat from "hardhat";
 import { expect } from "chai";
 import { Wallet, Provider, Contract } from "zksync-web3";
 import * as hre from "hardhat";
@@ -18,21 +19,60 @@ async function deployWallnut(
 const ADDR = "0x5A73c07163ACAE03e59c15697f79284b3bda2F2A";
 
 describe("Wallnut", function () {
-  it("adds a family member", async function () {
-    const name = "Family Member Name";
+  let provider: Provider;
+  let wallet: Wallet;
+  let deployer: Deployer;
 
-    const provider = Provider.getDefaultProvider();
+  beforeEach(() => {
+    provider = Provider.getDefaultProvider();
+    wallet = new Wallet(RICH_WALLET_PK, provider);
+    deployer = new Deployer(hre, wallet);
+  });
 
-    const wallet = new Wallet(RICH_WALLET_PK, provider);
-    const deployer = new Deployer(hre, wallet);
+  describe("addMember", () => {
+    it("adds a family member", async function () {
+      const name = "Family Member Name";
 
-    const wallnut = await deployWallnut(deployer, 0);
+      const wallnut = await deployWallnut(deployer, 0);
 
-    const tx = await wallnut.addMember(ADDR, name, "pfp");
-    await tx.wait();
+      await (await wallnut.addMember(ADDR, name, "pfp")).wait();
 
-    const member = await wallnut.family(ADDR);
+      const member = await wallnut.family(ADDR);
 
-    expect(member.name).to.eq(name);
+      expect(member.name).to.eq(name);
+      expect(member.active).to.eq(true);
+    });
+  });
+
+  describe("removeMember", () => {
+    it("removes a family member", async function () {
+      const wallnut = await deployWallnut(deployer, 0);
+
+      await (await wallnut.addMember(ADDR, "Family Member Name", "pfp")).wait();
+
+      await (await wallnut.removeMember(ADDR)).wait();
+
+      const member = await wallnut.family(ADDR);
+
+      expect(member.active).to.eq(false);
+    });
+  });
+
+  describe("stillHere", () => {
+    it("updates the last timestamp", async function () {
+      const wallnut = await deployWallnut(deployer, 0);
+
+      await (await wallnut.addMember(ADDR, "Family Member Name", "pfp")).wait();
+
+      const firstTimesamp = await wallnut.lastTimestamp();
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      await (await wallnut.stillHere()).wait();
+
+      const secondTimesamp = await wallnut.lastTimestamp();
+
+      expect(firstTimesamp.lt(secondTimesamp)).to.eq(true);
+    });
   });
 });
