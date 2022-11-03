@@ -1,5 +1,6 @@
 require("@matterlabs/hardhat-zksync-deploy");
 require("@matterlabs/hardhat-zksync-solc");
+require("@typechain/hardhat");
 
 const zkSyncDeploy =
   process.env.NODE_ENV == "test"
@@ -31,6 +32,9 @@ module.exports = {
     hardhat: {
       zksync: true,
     },
+  },
+  typechain: {
+    outDir: "typechain",
   },
   solidity: {
     version: "0.8.16",

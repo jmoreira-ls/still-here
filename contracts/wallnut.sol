@@ -15,12 +15,11 @@ import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 // to call non-view method of system contracts
 import "@matterlabs/zksync-contracts/l2/system-contracts/SystemContractsCaller.sol";
 
-
 import "./iWallnut.sol";
 
 contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
     // to get transaction hash
-            using TransactionHelper for Transaction;
+    using TransactionHelper for Transaction;
 
     struct Member {
         bool active;
@@ -31,34 +30,43 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
     // Account info
     address public owner;
     uint256 public lastTimestamp;
-    uint public daysThreshold;
-    uint public familyLength;
-    mapping(uint => address) public familyAddr;
+    uint256 public daysThreshold;
+    uint256 public familyLength;
+    mapping(uint256 => address) public familyAddr;
     mapping(address => Member) public family;
 
     bytes4 constant EIP1271_SUCCESS_RETURN_VALUE = 0x1626ba7e;
 
     modifier onlyBootloader() {
-        require (msg.sender == BOOTLOADER_FORMAL_ADDRESS, "Only bootloader can call this method");
+        require(
+            msg.sender == BOOTLOADER_FORMAL_ADDRESS,
+            "Only bootloader can call this method"
+        );
         // Continure execution if called from the bootloader.
         _;
     }
 
     modifier onlyOwner() {
-        require (msg.sender == owner);
+        require(msg.sender == owner);
         _;
     }
 
-    constructor(address _owner, uint _daysThreshold) {
+    constructor(address _owner, uint256 _daysThreshold) {
         familyLength = 0;
         owner = _owner;
         lastTimestamp = block.timestamp;
         daysThreshold = _daysThreshold;
     }
 
-
-    function addMember(address _member, string memory _name, string memory _pfp) external onlyOwner {
-        require(family[_member].active != true, "Cannot add already existing member");
+    function addMember(
+        address _member,
+        string memory _name,
+        string memory _pfp
+    ) external onlyOwner {
+        require(
+            family[_member].active != true,
+            "Cannot add already existing member"
+        );
 
         familyAddr[familyLength++] = _member;
         family[_member] = Member(true, _name, _pfp);
@@ -67,18 +75,21 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
     }
 
     function removeMember(address _member) external onlyOwner {
-        require(family[_member].active == true, "Can only remove active members");
+        require(
+            family[_member].active == true,
+            "Can only remove active members"
+        );
 
         family[_member].active = false;
 
         bool removed = false;
-        for (uint i = 0; i < familyLength; i++) {
+        for (uint256 i = 0; i < familyLength; i++) {
             if (familyAddr[i] == _member) {
                 familyAddr[i] = address(0);
                 removed = true;
                 continue;
             } else if (removed) {
-                familyAddr[i-1] = familyAddr[i];
+                familyAddr[i - 1] = familyAddr[i];
                 familyAddr[i] = address(0);
             }
         }
@@ -88,7 +99,7 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
         stillHere();
     }
 
-    function transfer(address _to, uint256 _amount ) external payable {
+    function transfer(address _to, uint256 _amount) external payable {
         _to.call{value: _amount}("");
     }
 
@@ -97,11 +108,11 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
     }
 
     function isActive() external view returns (bool) {
-        return _verifyNutCrack() != EIP1271_SUCCESS_RETURN_VALUE;
+        return _isNutCracked() != EIP1271_SUCCESS_RETURN_VALUE;
     }
 
-    function _verifyNutCrack() internal view returns (bytes4) {
-        if (block.timestamp >= lastTimestamp + daysThreshold * 86400 ) {
+    function _isNutCracked() internal view returns (bytes4) {
+        if (block.timestamp >= lastTimestamp + daysThreshold * 86400) {
             return EIP1271_SUCCESS_RETURN_VALUE;
         }
 
@@ -110,13 +121,14 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
 
     function validateTransaction(
         bytes32,
-        bytes32,
+        bytes32 _suggestedSignedHash,
         Transaction calldata _transaction
     ) external payable override onlyBootloader {
-        _validateTransaction(_transaction);
+        _validateTransaction(_suggestedSignedHash, _transaction);
     }
 
     function _validateTransaction(
+        bytes32 _suggestedSignedHash,
         Transaction calldata _transaction
     ) internal {
         // Incrementing the nonce of the account.
@@ -129,6 +141,21 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
                 INonceHolder.incrementMinNonceIfEquals,
                 (_transaction.reserved[0])
             )
+        );
+
+        bytes32 txHash;
+        // While the suggested signed hash is usually provided, it is generally
+        // not recommended to rely on it to be present, since in the future
+        // there may be tx types with no suggested signed hash.
+        if (_suggestedSignedHash == bytes32(0)) {
+            txHash = _transaction.encodeHash();
+        } else {
+            txHash = _suggestedSignedHash;
+        }
+
+        require(
+            isValidSignature(txHash, _transaction.signature) ==
+                EIP1271_SUCCESS_RETURN_VALUE
         );
     }
 
@@ -181,7 +208,7 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
         external
         payable
     {
-        _validateTransaction(_transaction);
+        _validateTransaction(bytes32(0), _transaction);
 
         _executeTransaction(_transaction);
     }
@@ -193,28 +220,37 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
         returns (bytes4)
     {
         // Each ECDSA signature is 65 bytes long.
-        if (_verifyNutCrack() == EIP1271_SUCCESS_RETURN_VALUE) {
-            require(_signature.length % 65 == 0, "Signature length is incorrect");
+        if (_isNutCracked() == EIP1271_SUCCESS_RETURN_VALUE) {
+            require(
+                _signature.length % 65 == 0,
+                "Signature length is incorrect"
+            );
 
-            uint signatureCount = _signature.length / 65;
-            require(signatureCount <= familyLength, "Incorrect number of signatures");
+            uint256 signatureCount = _signature.length / 65;
+            require(
+                signatureCount <= familyLength,
+                "Incorrect number of signatures"
+            );
 
             address[] memory membersSigned = new address[](signatureCount);
-            for (uint i = 0; i < signatureCount; i++) {
-                membersSigned[i] = ECDSA.recover(_hash, _signature[i * 65 : (i+1) * 65]);
+            for (uint256 i = 0; i < signatureCount; i++) {
+                membersSigned[i] = ECDSA.recover(
+                    _hash,
+                    _signature[i * 65:(i + 1) * 65]
+                );
             }
 
-            uint familyChecked = 0;
-            for (uint i = 0; i < familyLength; i++) {
+            uint256 familyChecked = 0;
+            for (uint256 i = 0; i < familyLength; i++) {
                 // TODO: verify if address is wallnut wallet AND is active
                 /* if (ERC165(familyAddr[i]).supportsInterface(type(IWallnut).interfaceId)) { */
-                    /* if (!IWallnut(familyAddr[i]).isActive()) { */
-                        /* familyChecked++; */
-                        /* continue; */
-                    /* } */
+                /* if (!IWallnut(familyAddr[i]).isActive()) { */
+                /* familyChecked++; */
+                /* continue; */
+                /* } */
                 /* } */
 
-                for (uint j = 0; j < signatureCount; j++) {
+                for (uint256 j = 0; j < signatureCount; j++) {
                     if (membersSigned[j] == familyAddr[i]) {
                         familyChecked++;
                         break;
@@ -222,7 +258,10 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
                 }
             }
 
-            require(familyChecked == familyLength, "Not all active family members signed");
+            require(
+                familyChecked == familyLength,
+                "Not all active family members signed"
+            );
         } else {
             require(_signature.length == 65, "Signature length is incorrect");
             address recoveredAddr = ECDSA.recover(_hash, _signature[0:65]);
@@ -256,7 +295,15 @@ contract Wallnut is IAccount, IWallnut, ERC165, IERC1271 {
         assert(msg.sender != BOOTLOADER_FORMAL_ADDRESS);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC165) returns (bool) {
-        return interfaceId == type(IWallnut).interfaceId || super.supportsInterface(interfaceId);
-    }
+    // function supportsInterface(bytes4 interfaceId)
+    //     public
+    //     view
+    //     virtual
+    //     override(ERC165)
+    //     returns (bool)
+    // {
+    //     return
+    //         interfaceId == type(IWallnut).interfaceId ||
+    //         super.supportsInterface(interfaceId);
+    // }
 }

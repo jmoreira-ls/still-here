@@ -23,6 +23,9 @@
   "dependencies": {
     "@matterlabs/zksync-contracts": "^0.4.2",
     "@openzeppelin/contracts": "^4.7.3",
-    "@openzeppelin/contracts-upgradeable": "^4.7.3"
+    "@openzeppelin/contracts-upgradeable": "^4.7.3",
+    "@typechain/ethers-v5": "^10.1.1",
+    "@typechain/hardhat": "^6.1.4",
+    "typechain": "^8.1.1"
   }
 }
